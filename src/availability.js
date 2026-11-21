@@ -57,7 +57,7 @@ function normalizeTimeSlots(slots) {
  * 指定日・指定商材の空き状況を計算する
  * - 日別上書き設定(dailySchedule)があればそれを優先（空配列なら受付停止）
  * - なければ商材の default_time_slots を適用
- * - キャンセル以外の予約を「1予約 = 1組」としてカウント（別商材とは干渉しない）
+ * - キャンセル以外の予約を「1予約 = 1組」として全商材共通で合算カウント（他商材と枠を共有）
  */
 function computeDayAvailability({
   content,
@@ -77,7 +77,6 @@ function computeDayAvailability({
   const bookedCountByTime = new Map();
   for (const r of reservationsForDay || []) {
     if (r.status === 'キャンセル') continue;
-    if (r.content_id !== content.id) continue;
     if (r.reservation_date !== targetDate) continue;
     const current = bookedCountByTime.get(r.time_slot) || 0;
     bookedCountByTime.set(r.time_slot, current + 1);
@@ -143,7 +142,6 @@ function computeMonthAvailability({
   const reservationsByDate = new Map();
   for (const r of reservations || []) {
     if (r.status === 'キャンセル') continue;
-    if (r.content_id !== content.id) continue;
     if (!reservationsByDate.has(r.reservation_date)) {
       reservationsByDate.set(r.reservation_date, []);
     }
