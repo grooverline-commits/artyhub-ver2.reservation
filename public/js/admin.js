@@ -453,8 +453,9 @@
     const total = content ? content.price * people : 0;
 
     document.getElementById('res-edit-total-price').textContent = formatYen(total);
+    const minP = content ? Number(content.min_people_per_group) || 1 : 1;
     document.getElementById('res-edit-max-people-hint').textContent = content
-      ? `（通常上限 ${content.max_people_per_group}名・超過入力可）`
+      ? `（通常 ${minP}〜${content.max_people_per_group}名・変更可）`
       : '';
   }
 
@@ -870,7 +871,11 @@
                 </span>
               </div>
               <div style="font-size:13px;color:var(--text-muted);">
-                料金: <strong>${formatYen(c.price)}</strong> / 1名 ｜ 上限: <strong>1組 ${c.max_people_per_group}名</strong> ｜ 表示順: ${c.sort_order}
+                料金: <strong>${formatYen(c.price)}</strong> / 1名 ｜ 人数: <strong>1組 ${
+                  (Number(c.min_people_per_group) || 1) === c.max_people_per_group
+                    ? `${c.max_people_per_group}名`
+                    : `${Number(c.min_people_per_group) || 1}〜${c.max_people_per_group}名`
+                }</strong> ｜ 表示順: ${c.sort_order}
               </div>
               <p style="margin:0;font-size:13px;color:var(--text-muted);">${escapeHtml(c.description || '説明なし')}</p>
               <div class="slot-tags">${slotsHtml}</div>
@@ -935,6 +940,7 @@
       document.getElementById('content-id').value = content.id;
       document.getElementById('content-title').value = content.title;
       document.getElementById('content-price').value = content.price;
+      document.getElementById('content-min-people').value = Number(content.min_people_per_group) || 1;
       document.getElementById('content-max-people').value = content.max_people_per_group;
       document.getElementById('content-image-url').value = content.image_url || '';
       document.getElementById('content-description').value = content.description || '';
@@ -948,6 +954,7 @@
       document.getElementById('content-modal-title').textContent = '新規商材を追加';
       document.getElementById('content-id').value = '';
       document.getElementById('content-form').reset();
+      document.getElementById('content-min-people').value = 1;
       document.getElementById('content-max-people').value = 4;
       document.getElementById('content-sort-order').value = state.contents.length + 1;
       document.getElementById('content-is-active').checked = true;
@@ -1582,11 +1589,20 @@
         return;
       }
 
+      const minPeople = Number(document.getElementById('content-min-people').value);
+      const maxPeople = Number(document.getElementById('content-max-people').value);
+      if (minPeople > maxPeople) {
+        errEl.textContent = '1組あたり最低人数は上限人数以下で入力してください。';
+        errEl.classList.remove('hidden');
+        return;
+      }
+
       const id = document.getElementById('content-id').value;
       const payload = {
         title: document.getElementById('content-title').value.trim(),
         price: Number(document.getElementById('content-price').value),
-        max_people_per_group: Number(document.getElementById('content-max-people').value),
+        min_people_per_group: minPeople,
+        max_people_per_group: maxPeople,
         image_url: document.getElementById('content-image-url').value.trim(),
         description: document.getElementById('content-description').value.trim(),
         default_time_slots: parsedSlots.slots,

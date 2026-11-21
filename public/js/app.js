@@ -55,6 +55,13 @@
     return `¥${Number(amount || 0).toLocaleString('ja-JP')}`;
   }
 
+  function formatPeopleRange(minPeople, maxPeople) {
+    const min = Number(minPeople) || 1;
+    const max = Number(maxPeople) || min;
+    if (min === max) return `1組 ${min}名`;
+    return `1組 ${min}〜${max}名`;
+  }
+
   function formatDateJa(dateStr) {
     if (!dateStr) return '';
     const [y, m, d] = dateStr.split('-').map(Number);
@@ -110,7 +117,7 @@
               <h3 class="content-title">${escapeHtml(c.title)}</h3>
               <div class="content-meta">
                 <span class="meta-pill price">${formatYen(c.price)} / 1名</span>
-                <span class="meta-pill">1組 最大${c.max_people_per_group}名</span>
+                <span class="meta-pill">${formatPeopleRange(c.min_people_per_group, c.max_people_per_group)}</span>
               </div>
               <p class="content-desc">${escapeHtml(c.description || '初心者の方も気軽に楽しめるアート体験です。')}</p>
               <button
@@ -152,16 +159,20 @@
       els.selectedContentMeta.innerHTML = '';
       return;
     }
+    const minPeople = Number(content.min_people_per_group) || 1;
+    const maxPeople = Math.max(minPeople, Number(content.max_people_per_group) || minPeople);
+
     els.selectedContentMeta.innerHTML = `
       <span class="meta-pill price">${formatYen(content.price)} / 1名</span>
-      <span class="meta-pill">1組 最大${content.max_people_per_group}名まで</span>
+      <span class="meta-pill">${formatPeopleRange(minPeople, maxPeople)}</span>
     `;
 
-    // 参加人数セレクト更新
-    const prevVal = Number(els.peopleSelect.value) || 1;
+    // 参加人数セレクト更新（最低人数〜上限人数）
+    const prevVal = Number(els.peopleSelect.value) || minPeople;
+    const clamped = Math.min(Math.max(prevVal, minPeople), maxPeople);
     let optionsHtml = '';
-    for (let i = 1; i <= content.max_people_per_group; i++) {
-      optionsHtml += `<option value="${i}" ${i === Math.min(prevVal, content.max_people_per_group) ? 'selected' : ''}>${i}名</option>`;
+    for (let i = minPeople; i <= maxPeople; i++) {
+      optionsHtml += `<option value="${i}" ${i === clamped ? 'selected' : ''}>${i}名</option>`;
     }
     els.peopleSelect.innerHTML = optionsHtml;
     els.peopleSelect.disabled = false;
