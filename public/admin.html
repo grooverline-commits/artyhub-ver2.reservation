@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ARTYHUB 長野 | 管理画面</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="/css/admin.css" />
+</head>
+
+<body>
+  <!-- ログイン画面 -->
+  <div id="login-view" class="login-shell">
+    <div class="login-card">
+      <h1 class="login-title" id="login-store-title">ARTYHUB 長野 管理画面</h1>
+      <p class="login-sub">管理パスワードを入力してログインしてください。</p>
+      <form id="login-form">
+        <div class="form-group">
+          <label for="admin-password" class="form-label">パスワード</label>
+          <input type="password" id="admin-password" class="form-control" placeholder="パスワードを入力"
+            autocomplete="current-password" required />
+        </div>
+        <div id="login-error" class="alert-error hidden"></div>
+        <button type="submit" id="login-submit-btn" class="btn btn-primary btn-block">
+          ログイン
+        </button>
+      </form>
+      <div style="margin-top: 16px; text-align: center;">
+        <a href="/" style="font-size: 13px; color: var(--text-muted);">← お客様向け予約ページへ戻る</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 管理ダッシュボード -->
+  <div id="dashboard-view" class="hidden">
+    <header class="admin-header">
+      <div class="admin-header-inner">
+        <div class="admin-brand">
+          <div class="admin-brand-badge">A</div>
+          <div>
+            <div class="admin-brand-title" id="admin-store-title">ARTYHUB 長野 管理画面</div>
+            <div class="env-pills" id="env-pills"></div>
+          </div>
+        </div>
+        <div class="admin-header-actions">
+          <div class="view-mode-switch" role="group" aria-label="管理画面の表示切替">
+            <span class="view-mode-label">管理表示:</span>
+            <button type="button" class="view-mode-btn is-active" data-view-mode="auto">自動</button>
+            <button type="button" class="view-mode-btn" data-view-mode="desktop">💻 PC</button>
+            <button type="button" class="view-mode-btn" data-view-mode="mobile">📱 スマホ</button>
+          </div>
+          <button type="button" id="open-preview-btn" class="btn btn-primary btn-sm">
+            📱/💻 公開画面プレビュー
+          </button>
+          <a href="/" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm">
+            別タブで開く ↗
+          </a>
+          <button type="button" id="logout-btn" class="btn btn-secondary btn-sm">ログアウト</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="admin-container">
+      <!-- タブナビ -->
+      <nav class="tabs-bar" aria-label="管理メニュー">
+        <button type="button" class="tab-btn is-active" data-tab="reservations">
+          予約カレンダー＆一覧
+          <span id="pending-count-badge" class="tab-badge hidden">0</span>
+        </button>
+        <button type="button" class="tab-btn" data-tab="contents">
+          商材（コンテンツ）管理
+        </button>
+        <button type="button" class="tab-btn" data-tab="daily">
+          日別の予約枠変更
+        </button>
+        <button type="button" class="tab-btn" data-tab="links">
+          SNS・外部リンク管理
+        </button>
+      </nav>
+
+      <!-- ================================================================== -->
+      <!-- タブ1：予約カレンダー＆一覧管理                                    -->
+      <!-- ================================================================== -->
+      <section id="tab-reservations" class="tab-panel">
+        <div class="stats-grid" id="reservation-stats">
+          <div class="stat-card">
+            <div class="stat-label">当月 合計予約</div>
+            <div class="stat-val" id="stat-total">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">未対応（確認待ち）</div>
+            <div class="stat-val pending" id="stat-pending">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">確定済み</div>
+            <div class="stat-val confirmed" id="stat-confirmed">0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">来店済</div>
+            <div class="stat-val visited" id="stat-visited">0</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="filter-bar">
+            <div class="month-nav">
+              <button type="button" id="res-prev-month" class="btn btn-secondary btn-sm">◀ 前月</button>
+              <div id="res-month-label" class="month-label">----年--月</div>
+              <button type="button" id="res-next-month" class="btn btn-secondary btn-sm">翌月 ▶</button>
+              <button type="button" id="res-today-month" class="btn btn-secondary btn-sm">今月</button>
+            </div>
+            <div class="filter-controls">
+              <select id="res-filter-status" class="form-control" style="width: auto; min-height: 34px;">
+                <option value="">すべてのステータス</option>
+                <option value="未対応">未対応</option>
+                <option value="確定">確定</option>
+                <option value="来店済">来店済</option>
+                <option value="キャンセル">キャンセル</option>
+              </select>
+              <select id="res-filter-content" class="form-control" style="width: auto; min-height: 34px;">
+                <option value="">すべての商材</option>
+              </select>
+              <button type="button" id="res-refresh-btn" class="btn btn-secondary btn-sm">更新</button>
+              <button type="button" id="add-manual-res-btn" class="btn btn-accent btn-sm">
+                ＋ 電話・手動予約を追加
+              </button>
+            </div>
+          </div>
+
+          <div class="admin-cal-weekdays">
+            <div style="color:#dc2626;">日</div>
+            <div>月</div>
+            <div>火</div>
+            <div>水</div>
+            <div>木</div>
+            <div>金</div>
+            <div style="color:#2563eb;">土</div>
+          </div>
+          <div id="admin-calendar-grid" class="admin-cal-grid"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title" id="res-list-title">当月の予約一覧</h2>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+              <button type="button" id="res-add-selected-date-btn" class="btn btn-accent btn-sm">
+                ＋ この日に電話予約を追加
+              </button>
+              <button type="button" id="res-clear-date-btn" class="btn btn-secondary btn-sm hidden">
+                日付絞り込みを解除（月間表示）
+              </button>
+            </div>
+          </div>
+          <div class="table-wrap desktop-only-table">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>日付</th>
+                  <th>時間</th>
+                  <th>商材名</th>
+                  <th>お客様名</th>
+                  <th>人数</th>
+                  <th>金額</th>
+                  <th>ステータス</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="reservations-tbody">
+                <tr>
+                  <td colspan="8" style="text-align:center;color:var(--text-muted);">読み込み中...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="reservations-mobile-list" class="mobile-card-list"></div>
+        </div>
+      </section>
+
+      <!-- ================================================================== -->
+      <!-- タブ2：商材（コンテンツ）管理                                      -->
+      <!-- ================================================================== -->
+      <section id="tab-contents" class="tab-panel hidden">
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">登録済み商材（ワークショップ体験）</h2>
+            <button type="button" id="add-content-btn" class="btn btn-primary">
+              ＋ 新規商材を追加
+            </button>
+          </div>
+          <div id="admin-contents-grid" class="admin-contents-grid"></div>
+        </div>
+      </section>
+
+      <!-- ================================================================== -->
+      <!-- タブ3：日別の予約枠変更                                            -->
+      <!-- ================================================================== -->
+      <section id="tab-daily" class="tab-panel hidden">
+        <div class="daily-layout">
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">日別の予約枠・受付停止の設定</h2>
+              <span id="daily-mode-badge" class="status-badge hidden"></span>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="daily-content-select" class="form-label">対象商材</label>
+                <select id="daily-content-select" class="form-control"></select>
+              </div>
+              <div class="form-group">
+                <label for="daily-date-input" class="form-label">対象日付</label>
+                <input type="date" id="daily-date-input" class="form-control" />
+              </div>
+            </div>
+
+            <label class="closed-toggle-box">
+              <input type="checkbox" id="daily-closed-checkbox" />
+              <span>この日は受付停止にする（全時間帯を非公開）</span>
+            </label>
+
+            <div class="form-group">
+              <div class="slot-section-head">
+                <label class="form-label" style="margin:0;">この日の開催時間帯・各時間の最大予約組数</label>
+                <div class="slot-head-actions">
+                  <button type="button" id="daily-add-slot-btn" class="btn btn-secondary btn-sm">＋ 時間帯を追加</button>
+                  <button type="button" id="daily-preset-slots-btn" class="btn btn-secondary btn-sm">基本7枠</button>
+                </div>
+              </div>
+              <div id="daily-slots-config" class="slot-config-grid"></div>
+              <p class="form-hint">
+                時刻欄をクリックすると「10:00 → 10:30」のように開始時刻を自由に変更できます。チェックを入れた時間帯のみ予約受付されます。
+              </p>
+            </div>
+
+            <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:16px;">
+              <button type="button" id="daily-save-btn" class="btn btn-primary">
+                この日の設定を保存
+              </button>
+              <button type="button" id="daily-reset-btn" class="btn btn-secondary">
+                通常設定に戻す（上書き解除）
+              </button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">登録済みの日別上書き設定</h2>
+            </div>
+            <div id="daily-schedules-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================== -->
+      <!-- タブ4：SNS・外部リンク管理                                         -->
+      <!-- ================================================================== -->
+      <section id="tab-links" class="tab-panel hidden">
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">SNS・外部リンク一覧</h2>
+            <button type="button" id="add-link-btn" class="btn btn-primary">
+              ＋ 新規リンクを追加
+            </button>
+          </div>
+          <div class="table-wrap desktop-only-table">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>表示順</th>
+                  <th>題名</th>
+                  <th>URL</th>
+                  <th>紹介文</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="links-tbody"></tbody>
+            </table>
+          </div>
+          <div id="links-mobile-list" class="mobile-card-list"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- モーダル1：予約詳細モーダル                                          -->
+  <!-- ==================================================================== -->
+  <div id="reservation-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">予約詳細</h3>
+        <button type="button" class="modal-close" data-close-modal="reservation-modal" aria-label="閉じる">×</button>
+      </div>
+      <dl id="reservation-detail-body" class="detail-list"></dl>
+      <div class="modal-actions" id="reservation-modal-actions">
+        <button type="button" id="btn-edit-reservation" class="btn btn-primary">
+          内容を編集
+        </button>
+        <button type="button" id="btn-accept-reservation" class="btn btn-success">
+          予約を受け入れる
+        </button>
+        <button type="button" id="btn-visited-reservation" class="btn btn-info">
+          来店済にする
+        </button>
+        <button type="button" id="btn-cancel-reservation" class="btn btn-danger-outline">
+          キャンセルにする
+        </button>
+        <button type="button" class="btn btn-secondary" data-close-modal="reservation-modal">
+          閉じる
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- モーダル1-B：電話・手動予約の追加／予約編集モーダル                  -->
+  <!-- ==================================================================== -->
+  <div id="reservation-edit-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title" id="res-edit-modal-title">電話・手動予約を追加</h3>
+        <button type="button" class="modal-close" data-close-modal="reservation-edit-modal" aria-label="閉じる">×</button>
+      </div>
+      <form id="reservation-edit-form">
+        <input type="hidden" id="res-edit-id" />
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="res-edit-content" class="form-label">体験メニュー（商材）*</label>
+            <select id="res-edit-content" class="form-control" required></select>
+          </div>
+          <div class="form-group">
+            <label for="res-edit-date" class="form-label">予約日*</label>
+            <input type="date" id="res-edit-date" class="form-control" required />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">その日の予約枠（満席でもクリックして強制追加できます）</label>
+          <div id="manual-slots-chips" class="manual-slots-chips"></div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="res-edit-time" class="form-label">開始時刻（任意時刻の手入力も可）*</label>
+            <input type="time" id="res-edit-time" class="form-control" required />
+          </div>
+          <div class="form-group">
+            <label for="res-edit-status" class="form-label">ステータス*</label>
+            <select id="res-edit-status" class="form-control" required>
+              <option value="確定">確定</option>
+              <option value="未対応">未対応</option>
+              <option value="来店済">来店済</option>
+              <option value="キャンセル">キャンセル</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="manual-overbook-notice" class="alert-warn hidden"></div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="res-edit-people" class="form-label">
+              参加人数（名）*
+              <span id="res-edit-max-people-hint" style="font-weight:400;color:var(--text-muted);"></span>
+            </label>
+            <input type="number" id="res-edit-people" class="form-control" min="1" max="100" value="2" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">合計金額目安（自動計算）</label>
+            <div id="res-edit-total-price" class="readonly-price-box">¥0</div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="res-edit-name" class="form-label">お客様名*</label>
+            <input type="text" id="res-edit-name" class="form-control" placeholder="例：山田 太郎" required maxlength="100" />
+          </div>
+          <div class="form-group">
+            <label for="res-edit-phone" class="form-label">お電話番号*</label>
+            <input type="tel" id="res-edit-phone" class="form-control" placeholder="例：090-1234-5678" required
+              maxlength="30" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="res-edit-email" class="form-label">メールアドレス（電話予約の場合は空欄でOK）</label>
+          <input type="email" id="res-edit-email" class="form-control" placeholder="未聴取の場合は空欄のまま登録できます" />
+        </div>
+
+        <div class="form-group" id="res-edit-send-mail-wrap">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer;">
+            <input type="checkbox" id="res-edit-send-mail" />
+            メールアドレス入力時、登録と同時に「予約確定メール」を送信する
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label for="res-edit-notes" class="form-label">備考・メモ</label>
+          <textarea id="res-edit-notes" class="form-control" placeholder="例：電話予約 / 満席のため特別対応 / お子様連れ など"
+            maxlength="1000"></textarea>
+        </div>
+
+        <div id="res-edit-error" class="alert-error hidden"></div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" data-close-modal="reservation-edit-modal">キャンセル</button>
+          <button type="submit" id="res-edit-save-btn" class="btn btn-primary">予約を登録する</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- モーダル2：2段階確認ダイアログ（はい / いいえ）                       -->
+  <!-- ==================================================================== -->
+  <div id="confirm-modal" class="modal-backdrop confirm-layer hidden" role="alertdialog" aria-modal="true">
+    <div class="modal-dialog confirm-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title" id="confirm-modal-title">最終確認</h3>
+      </div>
+      <p id="confirm-modal-message" class="confirm-message"></p>
+      <div id="confirm-modal-summary" class="confirm-summary hidden"></div>
+      <div class="confirm-buttons">
+        <button type="button" id="confirm-no-btn" class="btn btn-secondary">いいえ</button>
+        <button type="button" id="confirm-yes-btn" class="btn btn-success">はい</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- モーダル3：商材作成・編集モーダル                                    -->
+  <!-- ==================================================================== -->
+  <div id="content-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title" id="content-modal-title">新規商材を追加</h3>
+        <button type="button" class="modal-close" data-close-modal="content-modal" aria-label="閉じる">×</button>
+      </div>
+      <form id="content-form">
+        <input type="hidden" id="content-id" />
+
+        <div class="form-group">
+          <label for="content-title" class="form-label">題名（体験メニュー名）*</label>
+          <input type="text" id="content-title" class="form-control" required maxlength="120" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="content-price" class="form-label">金額（1名あたり・円）*</label>
+            <input type="number" id="content-price" class="form-control" min="0" step="100" required />
+          </div>
+          <div class="form-group">
+            <label for="content-max-people" class="form-label">1組あたり上限人数（名）*</label>
+            <input type="number" id="content-max-people" class="form-control" min="1" max="50" required value="4" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">写真（Supabase Storageへアップロード または URL指定）</label>
+          <div class="image-upload-row" style="margin-bottom:8px;">
+            <img id="content-image-preview" class="image-preview hidden" alt="プレビュー" />
+            <div style="flex:1;min-width:200px;">
+              <input type="file" id="content-image-file" accept="image/jpeg,image/png,image/webp,image/gif" />
+              <div class="form-hint" id="upload-status-text">JPG/PNG/WebP/GIF（5MBまで）</div>
+            </div>
+          </div>
+          <input type="url" id="content-image-url" class="form-control" placeholder="または画像URLを直接入力（https://...）" />
+        </div>
+
+        <div class="form-group">
+          <label for="content-description" class="form-label">
+            体験内容（100文字目安）
+            <span id="desc-char-count" style="font-weight:400;color:var(--text-muted);margin-left:8px;">0文字</span>
+          </label>
+          <textarea id="content-description" class="form-control" maxlength="500"></textarea>
+        </div>
+
+        <div class="form-group">
+          <div class="slot-section-head">
+            <label class="form-label" style="margin:0;">デフォルト開催時間帯と最大予約組数</label>
+            <div class="slot-head-actions">
+              <button type="button" id="content-add-slot-btn" class="btn btn-secondary btn-sm">＋ 時間帯を追加</button>
+              <button type="button" id="slots-select-all" class="btn btn-secondary btn-sm">基本7枠</button>
+              <button type="button" id="slots-clear-all" class="btn btn-secondary btn-sm">全解除</button>
+            </div>
+          </div>
+          <div id="content-slots-config" class="slot-config-grid"></div>
+          <p class="form-hint">
+            時刻欄から開始時間を自由に変更できます（例：10:00 → 10:30）。「＋ 時間帯を追加」で新しい時間枠も追加できます。
+          </p>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="content-sort-order" class="form-label">表示順（小さいほど先頭）</label>
+            <input type="number" id="content-sort-order" class="form-control" value="0" />
+          </div>
+          <div class="form-group" style="display:flex;align-items:center;padding-top:24px;">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:14px;">
+              <input type="checkbox" id="content-is-active" checked />
+              お客様画面に公開する
+            </label>
+          </div>
+        </div>
+
+        <div id="content-form-error" class="alert-error hidden"></div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" data-close-modal="content-modal">キャンセル</button>
+          <button type="submit" id="content-save-btn" class="btn btn-primary">保存する</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- モーダル4：外部リンク作成・編集モーダル                              -->
+  <!-- ==================================================================== -->
+  <div id="link-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title" id="link-modal-title">新規リンクを追加</h3>
+        <button type="button" class="modal-close" data-close-modal="link-modal" aria-label="閉じる">×</button>
+      </div>
+      <form id="link-form">
+        <input type="hidden" id="link-id" />
+        <div class="form-group">
+          <label for="link-title" class="form-label">題名（例：Instagram / TikTok / Googleマップ）*</label>
+          <input type="text" id="link-title" class="form-control" required maxlength="80" />
+        </div>
+        <div class="form-group">
+          <label for="link-url" class="form-label">URL*</label>
+          <input type="url" id="link-url" class="form-control" placeholder="https://..." required />
+        </div>
+        <div class="form-group">
+          <label for="link-description" class="form-label">紹介文</label>
+          <textarea id="link-description" class="form-control" maxlength="300"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="link-sort-order" class="form-label">表示順（小さいほど先頭）</label>
+          <input type="number" id="link-sort-order" class="form-control" value="0" />
+        </div>
+        <div id="link-form-error" class="alert-error hidden"></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" data-close-modal="link-modal">キャンセル</button>
+          <button type="submit" id="link-save-btn" class="btn btn-primary">保存する</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- モーダル5：お客様向け公開画面 プレビュー（スマホ／PC切替）           -->
+  <!-- ==================================================================== -->
+  <div id="preview-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="modal-dialog preview-dialog">
+      <div class="modal-header preview-header">
+        <div>
+          <h3 class="modal-title">お客様向け予約画面プレビュー</h3>
+          <div style="font-size:12px;color:var(--text-muted);">
+            スマホ・パソコンそれぞれの見え方を確認しながら設定を調整できます
+          </div>
+        </div>
+        <div class="preview-controls">
+          <div class="view-mode-switch" role="group" aria-label="プレビュー端末切替">
+            <button type="button" id="preview-mobile-btn" class="view-mode-btn is-active" data-preview-device="mobile">
+              📱 スマホ (390px)
+            </button>
+            <button type="button" id="preview-desktop-btn" class="view-mode-btn" data-preview-device="desktop">
+              💻 パソコン (1160px)
+            </button>
+          </div>
+          <button type="button" id="preview-reload-btn" class="btn btn-secondary btn-sm">最新に更新</button>
+          <button type="button" class="modal-close" data-close-modal="preview-modal" aria-label="閉じる">×</button>
+        </div>
+      </div>
+      <div class="preview-stage">
+        <div id="preview-frame-shell" class="preview-frame-shell is-mobile">
+          <iframe id="preview-iframe" title="お客様向け予約画面プレビュー"></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <script src="/js/admin.js"></script>
+</body>
+
+</html>

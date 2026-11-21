@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: artyhub-nagano-yoyaku
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: STORE_NAME
+        value: ARTYHUB 長野
+      - key: STORE_NOTIFY_EMAIL
+        value: artyhub.info@gmail.com
+      - key: SUPABASE_STORAGE_BUCKET
+        value: content-images
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_PASS
+        sync: false

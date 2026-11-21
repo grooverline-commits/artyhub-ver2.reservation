@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ARTYHUB 長野 | ワークショップ体験予約</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="#top" class="brand">
+        <span class="brand-mark" aria-hidden="true">A</span>
+        <span class="brand-text">
+          <span class="brand-name" id="header-store-name">ARTYHUB 長野</span>
+          <span class="brand-sub">WORKSHOP RESERVATION</span>
+        </span>
+      </a>
+      <nav class="nav-links" aria-label="メインナビゲーション">
+        <a href="#menu-section">体験メニュー</a>
+        <a href="#links-section">SNS・アクセス</a>
+        <a href="#booking-section" class="nav-cta">空き状況・予約</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- Hero -->
+    <section class="hero">
+      <div class="container">
+        <div class="hero-badge">手ぶらでOK・初心者大歓迎</div>
+        <h1 class="hero-title">
+          <span id="hero-store-name">ARTYHUB 長野</span>で楽しむ、<br />
+          あなただけのアート体験。
+        </h1>
+        <p class="hero-lead">
+          お好きなワークショップを選んで、カレンダーからご希望の日時をご予約いただけます。
+          お申し込み後、店舗にて内容を確認のうえ確定メールをお送りいたします。
+        </p>
+
+        <div class="steps-strip">
+          <div class="step-card">
+            <span class="step-num">1</span>
+            <div>
+              <div class="step-label">体験を選ぶ</div>
+              <div class="step-sub">お好みのメニューを選択</div>
+            </div>
+          </div>
+          <div class="step-card">
+            <span class="step-num">2</span>
+            <div>
+              <div class="step-label">日時を選ぶ</div>
+              <div class="step-sub">空き枠カレンダーから選択</div>
+            </div>
+          </div>
+          <div class="step-card">
+            <span class="step-num">3</span>
+            <div>
+              <div class="step-label">仮予約を送信</div>
+              <div class="step-sub">受付メールが自動で届きます</div>
+            </div>
+          </div>
+          <div class="step-card">
+            <span class="step-num">4</span>
+            <div>
+              <div class="step-label">予約確定メール</div>
+              <div class="step-sub">店舗確認後に確定をご案内</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 商材一覧 -->
+    <section class="section" id="menu-section">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-kicker">WORKSHOP MENU</div>
+          <h2 class="section-title">体験メニュー一覧</h2>
+          <p class="section-desc">
+            気になるメニューの「この体験を予約する」ボタンから、空き状況をご確認いただけます。
+          </p>
+        </div>
+
+        <div id="contents-grid" class="contents-grid">
+          <div class="empty-state">メニューを読み込んでいます...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 空き状況カレンダー＆予約フォーム -->
+    <section class="section section-alt" id="booking-section">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-kicker">RESERVATION</div>
+          <h2 class="section-title">空き状況カレンダー・ご予約</h2>
+          <p class="section-desc">
+            体験メニューごとに空き枠を管理しています。日付と時間帯を選んでお申し込みください。
+          </p>
+        </div>
+
+        <!-- 予約入力ビュー -->
+        <div id="booking-workspace">
+          <div class="selected-content-bar">
+            <div class="selected-content-info">
+              <label for="booking-content-select" class="selected-content-label">選択中の体験メニュー</label>
+              <select id="booking-content-select" class="selected-content-select"></select>
+            </div>
+            <div id="selected-content-meta" class="content-meta" style="margin-bottom: 0;"></div>
+          </div>
+
+          <div class="booking-layout">
+            <!-- 左：月別カレンダー -->
+            <div class="panel">
+              <h3 class="panel-title">
+                <span class="step-badge">1</span>
+                ご希望の日付を選択
+              </h3>
+
+              <div class="calendar-header">
+                <button type="button" id="cal-prev-btn" class="cal-nav-btn">◀ 前月</button>
+                <div id="cal-month-label" class="calendar-month-label">----年--月</div>
+                <button type="button" id="cal-next-btn" class="cal-nav-btn">翌月 ▶</button>
+              </div>
+
+              <div class="calendar-weekdays">
+                <div class="sun">日</div>
+                <div>月</div>
+                <div>火</div>
+                <div>水</div>
+                <div>木</div>
+                <div>金</div>
+                <div class="sat">土</div>
+              </div>
+
+              <div id="calendar-grid" class="calendar-grid"></div>
+
+              <div class="calendar-legend">
+                <span class="legend-item"><strong class="cal-mark available">○</strong> 空きあり</span>
+                <span class="legend-item"><strong class="cal-mark few">△</strong> 残りわずか</span>
+                <span class="legend-item"><strong class="cal-mark full">×</strong> 満席</span>
+                <span class="legend-item"><strong class="cal-mark closed">－</strong> 受付停止・対象外</span>
+              </div>
+            </div>
+
+            <!-- 右：時間帯選択＆フォーム -->
+            <div class="panel">
+              <div class="slots-section">
+                <h3 class="panel-title">
+                  <span class="step-badge">2</span>
+                  ご希望の時間帯を選択
+                  <span id="selected-date-badge" style="font-size: 13px; color: var(--accent); margin-left: auto;"></span>
+                </h3>
+                <div id="slots-container">
+                  <p class="slots-hint">左のカレンダーからご予約可能な日付を選択してください。</p>
+                </div>
+              </div>
+
+              <div id="reservation-form-section">
+                <h3 class="panel-title">
+                  <span class="step-badge">3</span>
+                  お客様情報の入力
+                </h3>
+
+                <div id="booking-summary-box" class="booking-summary-box hidden"></div>
+
+                <form id="reservation-form" novalidate>
+                  <div class="form-group">
+                    <label for="people-count" class="form-label">
+                      参加人数<span class="required-tag">必須</span>
+                    </label>
+                    <select id="people-count" name="people_count" class="form-control" required disabled></select>
+                  </div>
+
+                  <div class="total-price-bar">
+                    <span>お支払い目安（税込）</span>
+                    <span id="total-price-display" class="total-price-amount">¥0</span>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="customer-name" class="form-label">
+                      お名前<span class="required-tag">必須</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="customer-name"
+                      name="customer_name"
+                      class="form-control"
+                      placeholder="例：山田 花子"
+                      autocomplete="name"
+                      required
+                    />
+                  </div>
+
+                  <div class="form-group">
+                    <label for="customer-email" class="form-label">
+                      メールアドレス<span class="required-tag">必須</span>
+                    </label>
+                    <input
+                      type="email"
+                      id="customer-email"
+                      name="customer_email"
+                      class="form-control"
+                      placeholder="例：example@gmail.com"
+                      autocomplete="email"
+                      required
+                    />
+                  </div>
+
+                  <div class="form-group">
+                    <label for="customer-phone" class="form-label">
+                      お電話番号<span class="required-tag">必須</span>
+                    </label>
+                    <input
+                      type="tel"
+                      id="customer-phone"
+                      name="customer_phone"
+                      class="form-control"
+                      placeholder="例：090-1234-5678"
+                      autocomplete="tel"
+                      required
+                    />
+                  </div>
+
+                  <div class="form-group">
+                    <label for="customer-notes" class="form-label">備考・ご要望（任意）</label>
+                    <textarea
+                      id="customer-notes"
+                      name="notes"
+                      class="form-control"
+                      placeholder="お子様連れ、アレルギーやご要望などがあればご記入ください"
+                    ></textarea>
+                  </div>
+
+                  <div id="form-error" class="alert alert-error hidden"></div>
+
+                  <button
+                    type="submit"
+                    id="submit-reservation-btn"
+                    class="btn btn-primary btn-block"
+                    disabled
+                  >
+                    この内容で仮予約を申し込む
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 予約完了ビュー -->
+        <div id="booking-complete" class="complete-panel hidden">
+          <div class="complete-icon" aria-hidden="true">✓</div>
+          <h3 class="complete-title">仮予約を受け付けました</h3>
+          <p class="complete-lead">
+            お申し込みありがとうございます。ご入力いただいたメールアドレス宛に受付（仮予約）メールをお送りしました。<br />
+            店舗にて内容を確認のうえ、あらためて<strong>「予約確定メール」</strong>をお送りいたします。
+          </p>
+          <div id="complete-details" class="complete-details"></div>
+          <button type="button" id="book-again-btn" class="btn btn-secondary">
+            別の体験・日時を予約する
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 外部リンク・SNSセクション -->
+    <section class="section" id="links-section">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-kicker">LINKS &amp; SNS</div>
+          <h2 class="section-title">SNS・アクセス・公式リンク</h2>
+          <p class="section-desc">
+            最新の作品ギャラリーや店舗へのアクセス情報はこちらからご覧いただけます。
+          </p>
+        </div>
+        <div id="links-grid" class="links-grid">
+          <div class="empty-state">リンク情報を読み込んでいます...</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div>
+        <strong id="footer-store-name">ARTYHUB 長野</strong> — ワークショップ体験予約システム
+      </div>
+      <div>
+        <a href="/admin" class="admin-entry-link">店舗管理画面</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
