@@ -450,10 +450,15 @@
           <input type="text" id="content-title" class="form-control" required maxlength="120" />
         </div>
 
+        <div class="form-group">
+          <label for="content-price" class="form-label">金額（1名あたり・円）*</label>
+          <input type="number" id="content-price" class="form-control" min="0" step="100" required />
+        </div>
+
         <div class="form-row">
           <div class="form-group">
-            <label for="content-price" class="form-label">金額（1名あたり・円）*</label>
-            <input type="number" id="content-price" class="form-control" min="0" step="100" required />
+            <label for="content-min-people" class="form-label">1組あたり最低人数（名）*</label>
+            <input type="number" id="content-min-people" class="form-control" min="1" max="50" required value="1" />
           </div>
           <div class="form-group">
             <label for="content-max-people" class="form-label">1組あたり上限人数（名）*</label>
