@@ -124,7 +124,7 @@ router.get('/reservations', async (req, res, next) => {
 router.patch('/reservations/:id/status', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { status, sendConfirmationEmail } = req.body || {};
+    const { status, sendConfirmationEmail, sendCancellationEmail } = req.body || {};
 
     if (!config.RESERVATION_STATUSES.includes(status)) {
       return res.status(400).json({ error: '不正なステータスです。' });
@@ -142,9 +142,14 @@ router.patch('/reservations/:id/status', async (req, res, next) => {
     const shouldSendConfirm =
       status === '確定' &&
       (sendConfirmationEmail === true || existing.status !== '確定');
+    const shouldSendCancel =
+      status === 'キャンセル' &&
+      (sendCancellationEmail === true || existing.status !== 'キャンセル');
 
     if (shouldSendConfirm && updated.customer_email) {
       mailResult = await mailer.sendCustomerConfirmedEmail(updated, content);
+    } else if (shouldSendCancel && updated.customer_email) {
+      mailResult = await mailer.sendCustomerCancelledEmail(updated, content);
     }
 
     res.json({
@@ -329,11 +334,22 @@ router.put('/reservations/:id', async (req, res, next) => {
     if (error) return res.status(400).json({ error });
 
     const updated = await db.updateReservation(existing.id, data);
+
+    let mailResult = null;
+    if (existing.status !== updated.status && updated.customer_email) {
+      if (updated.status === '確定') {
+        mailResult = await mailer.sendCustomerConfirmedEmail(updated, content);
+      } else if (updated.status === 'キャンセル') {
+        mailResult = await mailer.sendCustomerCancelledEmail(updated, content);
+      }
+    }
+
     res.json({
       reservation: {
         ...updated,
         content_title: content.title,
       },
+      mail: mailResult,
     });
   } catch (err) {
     next(err);
