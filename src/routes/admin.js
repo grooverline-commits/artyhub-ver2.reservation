@@ -179,7 +179,7 @@ router.get('/availability/day', async (req, res, next) => {
 
     const [dailySchedule, reservationsRaw] = await Promise.all([
       db.getDailySchedule(content.id, date),
-      db.listReservations({ contentId: content.id, fromDate: date, toDate: date }),
+      db.listReservations({ fromDate: date, toDate: date }),
     ]);
 
     const reservationsForDay = excludeReservationId
@@ -283,11 +283,10 @@ router.post('/reservations', async (req, res, next) => {
     const { content, data, error } = await validateAdminReservationPayload(req.body);
     if (error) return res.status(400).json({ error });
 
-    // 空き状況を確認（満席でも管理者権限で強制登録を許可し、フラグのみ返す）
+    // 空き状況を確認（全商材合算。満席でも管理者権限で強制登録を許可し、フラグのみ返す）
     const [dailySchedule, reservationsForDay] = await Promise.all([
       db.getDailySchedule(content.id, data.reservation_date),
       db.listReservations({
-        contentId: content.id,
         fromDate: data.reservation_date,
         toDate: data.reservation_date,
       }),
@@ -508,7 +507,7 @@ router.get('/daily-schedules/detail', async (req, res, next) => {
 
     const [schedule, reservations] = await Promise.all([
       db.getDailySchedule(contentId, date),
-      db.listReservations({ contentId, fromDate: date, toDate: date }),
+      db.listReservations({ fromDate: date, toDate: date }),
     ]);
 
     const bookedByTime = {};

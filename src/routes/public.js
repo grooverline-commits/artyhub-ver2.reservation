@@ -62,7 +62,7 @@ router.get('/availability', async (req, res, next) => {
 
     const [dailySchedules, reservations] = await Promise.all([
       db.listDailySchedules({ contentId: content.id, fromDate, toDate }),
-      db.listReservations({ contentId: content.id, fromDate, toDate }),
+      db.listReservations({ fromDate, toDate }),
     ]);
 
     const availability = computeMonthAvailability({
@@ -102,7 +102,7 @@ router.get('/availability/day', async (req, res, next) => {
 
     const [dailySchedule, reservationsForDay] = await Promise.all([
       db.getDailySchedule(content.id, date),
-      db.listReservations({ contentId: content.id, fromDate: date, toDate: date }),
+      db.listReservations({ fromDate: date, toDate: date }),
     ]);
 
     const dayInfo = computeDayAvailability({
@@ -183,11 +183,10 @@ router.post('/reservations', async (req, res, next) => {
       return res.status(400).json({ error: '過去の日付は予約できません。' });
     }
 
-    // 空き枠チェック（同じ商材の同じ日時・時間帯の残数を確認）
+    // 空き枠チェック（全商材共通で同じ日時・時間帯の残数を確認）
     const [dailySchedule, reservationsForDay] = await Promise.all([
       db.getDailySchedule(content.id, reservation_date),
       db.listReservations({
-        contentId: content.id,
         fromDate: reservation_date,
         toDate: reservation_date,
       }),
