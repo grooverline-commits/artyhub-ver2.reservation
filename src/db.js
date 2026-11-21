@@ -26,6 +26,7 @@ function createInitialMemoryState() {
         title: 'フルイドアート（たらし込みアート）体験',
         image_url: '',
         price: 3800,
+        min_people_per_group: 1,
         max_people_per_group: 4,
         description:
           'お好みのアクリル絵の具をキャンバスに流して、世界に一つだけの抽象画を作る人気No.1のワークショップです。初心者の方でも安心して楽しめます。',
@@ -46,6 +47,7 @@ function createInitialMemoryState() {
         title: 'テクスチャーアート体験',
         image_url: '',
         price: 4500,
+        min_people_per_group: 1,
         max_people_per_group: 4,
         description:
           'モデリングペーストとペインティングナイフで立体的なアートパネルを制作します。お部屋のインテリアにぴったりの作品をお持ち帰りいただけます。',
@@ -122,6 +124,7 @@ async function listContents({ activeOnly = false } = {}) {
     handleSupabaseError(error, '商材一覧の取得に失敗しました');
     return (data || []).map((c) => ({
       ...c,
+      min_people_per_group: Number(c.min_people_per_group) || 1,
       default_time_slots: normalizeTimeSlots(c.default_time_slots),
     }));
   }
@@ -131,6 +134,7 @@ async function listContents({ activeOnly = false } = {}) {
   list.sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at));
   return list.map((c) => ({
     ...c,
+    min_people_per_group: Number(c.min_people_per_group) || 1,
     default_time_slots: normalizeTimeSlots(c.default_time_slots),
   }));
 }
@@ -147,13 +151,18 @@ async function getContentById(id) {
     if (!data) return null;
     return {
       ...data,
+      min_people_per_group: Number(data.min_people_per_group) || 1,
       default_time_slots: normalizeTimeSlots(data.default_time_slots),
     };
   }
 
   const found = mem.contents.find((c) => c.id === id);
   return found
-    ? { ...found, default_time_slots: normalizeTimeSlots(found.default_time_slots) }
+    ? {
+        ...found,
+        min_people_per_group: Number(found.min_people_per_group) || 1,
+        default_time_slots: normalizeTimeSlots(found.default_time_slots),
+      }
     : null;
 }
 
@@ -162,6 +171,7 @@ async function createContent(payload) {
     title: payload.title,
     image_url: payload.image_url || '',
     price: Number(payload.price),
+    min_people_per_group: Number(payload.min_people_per_group) || 1,
     max_people_per_group: Number(payload.max_people_per_group),
     description: payload.description || '',
     default_time_slots: normalizeTimeSlots(payload.default_time_slots),
@@ -190,6 +200,7 @@ async function updateContent(id, payload) {
     title: payload.title,
     image_url: payload.image_url || '',
     price: Number(payload.price),
+    min_people_per_group: Number(payload.min_people_per_group) || 1,
     max_people_per_group: Number(payload.max_people_per_group),
     description: payload.description || '',
     default_time_slots: normalizeTimeSlots(payload.default_time_slots),
