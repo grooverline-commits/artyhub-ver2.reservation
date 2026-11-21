@@ -599,22 +599,27 @@
     await loadManualDaySlots();
   }
 
-  async function updateReservationStatus(reservation, newStatus, sendConfirmationEmail = false) {
+  async function updateReservationStatus(
+    reservation,
+    newStatus,
+    { sendConfirmationEmail = false, sendCancellationEmail = false } = {}
+  ) {
     try {
       const res = await apiFetch(`/api/admin/reservations/${encodeURIComponent(reservation.id)}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus, sendConfirmationEmail }),
+        body: JSON.stringify({ status: newStatus, sendConfirmationEmail, sendCancellationEmail }),
       });
 
       let msg = `ステータスを「${newStatus}」に更新しました。`;
-      if (newStatus === '確定' && res.mail) {
+      if ((newStatus === '確定' || newStatus === 'キャンセル') && res.mail) {
+        const mailName = newStatus === '確定' ? '予約確定メール' : '予約キャンセルメール';
         if (res.mail.sent) {
-          msg += ' お客様へ確定メールを送信しました。';
+          msg += ` お客様へ${mailName}を送信しました。`;
         } else if (res.mail.skipped) {
           msg += '（※メール未設定のため送信はスキップされました）';
         } else {
-          msg += '（※確定メール送信でエラーが発生しました）';
+          msg += `（※${mailName}送信でエラーが発生しました）`;
         }
       }
 
@@ -1432,12 +1437,19 @@
 
       try {
         if (id) {
-          await apiFetch(`/api/admin/reservations/${encodeURIComponent(id)}`, {
+          const res = await apiFetch(`/api/admin/reservations/${encodeURIComponent(id)}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
           });
-          showToast('予約内容を更新しました。', 'success');
+          let msg = '予約内容を更新しました。';
+          if (res.mail?.sent) {
+            msg +=
+              payload.status === 'キャンセル'
+                ? ' 予約キャンセルメールを送信しました。'
+                : ' 予約確定メールを送信しました。';
+          }
+          showToast(msg, 'success');
         } else {
           const res = await apiFetch('/api/admin/reservations', {
             method: 'POST',
@@ -1486,7 +1498,7 @@
           お客様：${escapeHtml(r.customer_name)} 様（${r.people_count}名）
         `,
         yesClass: 'btn-success',
-        onConfirm: () => updateReservationStatus(r, '確定', true),
+        onConfirm: () => updateReservationStatus(r, '確定', { sendConfirmationEmail: true }),
       });
     });
 
@@ -1494,7 +1506,7 @@
     document.getElementById('btn-visited-reservation').addEventListener('click', () => {
       const r = state.activeReservation;
       if (!r) return;
-      updateReservationStatus(r, '来店済', false);
+      updateReservationStatus(r, '来店済');
     });
 
     // 予約詳細モーダル：キャンセルにする（2段階確認 必須）
@@ -1503,14 +1515,14 @@
       if (!r) return;
       openConfirmDialog({
         title: '予約キャンセルの最終確認',
-        message: '本当にこの予約をキャンセルしますか？（この枠は再び予約可能になります）',
+        message: '本当にこの予約をキャンセルしますか？（お客様へ予約キャンセルメールが送信され、この枠は再び予約可能になります）',
         summaryHtml: `
           <strong>${escapeHtml(r.content_title)}</strong><br/>
           日時：${formatDateJa(r.reservation_date)} ${escapeHtml(r.time_slot)}<br/>
           お客様：${escapeHtml(r.customer_name)} 様（${r.people_count}名）
         `,
         yesClass: 'btn-danger',
-        onConfirm: () => updateReservationStatus(r, 'キャンセル', false),
+        onConfirm: () => updateReservationStatus(r, 'キャンセル', { sendCancellationEmail: true }),
       });
     });
 
