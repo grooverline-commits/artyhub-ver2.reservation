@@ -78,6 +78,7 @@ router.get('/availability', async (req, res, next) => {
         id: content.id,
         title: content.title,
         price: content.price,
+        min_people_per_group: Number(content.min_people_per_group) || 1,
         max_people_per_group: content.max_people_per_group,
       },
       ...availability,
@@ -117,6 +118,7 @@ router.get('/availability/day', async (req, res, next) => {
         id: content.id,
         title: content.title,
         price: content.price,
+        min_people_per_group: Number(content.min_people_per_group) || 1,
         max_people_per_group: content.max_people_per_group,
       },
       ...dayInfo,
@@ -172,10 +174,13 @@ router.post('/reservations', async (req, res, next) => {
       return res.status(404).json({ error: '選択された体験メニューは現在予約を受け付けていません。' });
     }
 
-    if (!Number.isInteger(peopleNum) || peopleNum < 1 || peopleNum > content.max_people_per_group) {
-      return res.status(400).json({
-        error: `参加人数は1名〜${content.max_people_per_group}名の間で選択してください。`,
-      });
+    const minPeople = Number(content.min_people_per_group) || 1;
+    if (!Number.isInteger(peopleNum) || peopleNum < minPeople || peopleNum > content.max_people_per_group) {
+      const rangeMsg =
+        minPeople === content.max_people_per_group
+          ? `参加人数は${minPeople}名で選択してください。`
+          : `参加人数は${minPeople}名〜${content.max_people_per_group}名の間で選択してください。`;
+      return res.status(400).json({ error: rangeMsg });
     }
 
     const todayJST = getTodayJST();

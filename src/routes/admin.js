@@ -200,6 +200,7 @@ router.get('/availability/day', async (req, res, next) => {
         id: content.id,
         title: content.title,
         price: content.price,
+        min_people_per_group: Number(content.min_people_per_group) || 1,
         max_people_per_group: content.max_people_per_group,
       },
       ...dayInfo,
@@ -362,6 +363,10 @@ function validateContentPayload(body) {
   const title = String(body?.title || '').trim();
   const image_url = String(body?.image_url || '').trim();
   const price = Number(body?.price);
+  const min_people_per_group =
+    body?.min_people_per_group === undefined || body?.min_people_per_group === ''
+      ? 1
+      : Number(body.min_people_per_group);
   const max_people_per_group = Number(body?.max_people_per_group);
   const description = String(body?.description || '').trim();
   const is_active = body?.is_active !== false;
@@ -374,8 +379,14 @@ function validateContentPayload(body) {
   if (!Number.isInteger(price) || price < 0) {
     return { error: '金額は0以上の整数で入力してください。' };
   }
+  if (!Number.isInteger(min_people_per_group) || min_people_per_group < 1 || min_people_per_group > 50) {
+    return { error: '1組あたり最低人数は1〜50名の整数で入力してください。' };
+  }
   if (!Number.isInteger(max_people_per_group) || max_people_per_group < 1 || max_people_per_group > 50) {
     return { error: '1組あたり上限人数は1〜50名の整数で入力してください。' };
+  }
+  if (min_people_per_group > max_people_per_group) {
+    return { error: '1組あたり最低人数は上限人数以下で入力してください。' };
   }
   if (description.length > 500) {
     return { error: '体験内容は500文字以内で入力してください。' };
@@ -389,6 +400,7 @@ function validateContentPayload(body) {
       title,
       image_url,
       price,
+      min_people_per_group,
       max_people_per_group,
       description,
       default_time_slots,
