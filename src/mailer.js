@@ -169,10 +169,48 @@ async function sendCustomerConfirmedEmail(reservation, content) {
   );
 }
 
+async function sendCustomerCancelledEmail(reservation, content) {
+  const title = content?.title || reservation.content_title || 'ワークショップ体験';
+  const subject = `【${config.storeName}】ご予約キャンセルのお知らせ`;
+
+  const text = [
+    `${reservation.customer_name} 様`,
+    '',
+    `お申し込みいただいておりました ${config.storeName} のワークショップ体験につきまして、`,
+    '以下のご予約の【キャンセル】を承りましたのでお知らせいたします。',
+    '',
+    '========================================',
+    `■ 体験メニュー：${title}`,
+    `■ キャンセル日時：${formatDateJa(reservation.reservation_date)} ${reservation.time_slot}`,
+    `■ ご参加人数　：${reservation.people_count}名`,
+    `■ 合計金額　　：${formatYen(reservation.total_price)}`,
+    '========================================',
+    '',
+    'また別の日程でのご参加をスタッフ一同、心よりお待ちしております。',
+    'ご不明な点がございましたら、下記メールアドレスまでお気軽にお問い合わせください。',
+    '',
+    '----------------------------------------',
+    `${config.storeName}`,
+    `Email: ${config.storeNotifyEmail}`,
+    '----------------------------------------',
+  ].join('\n');
+
+  return safeSendMail(
+    {
+      to: reservation.customer_email,
+      replyTo: config.storeNotifyEmail,
+      subject,
+      text,
+    },
+    'お客様宛・キャンセルメール'
+  );
+}
+
 module.exports = {
   sendStoreNewReservationEmail,
   sendCustomerPendingEmail,
   sendCustomerConfirmedEmail,
+  sendCustomerCancelledEmail,
   formatDateJa,
   formatYen,
 };
