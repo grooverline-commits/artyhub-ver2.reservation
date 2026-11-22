@@ -99,6 +99,25 @@ function createInitialMemoryState() {
 
 const mem = config.isSupabaseConfigured ? null : createInitialMemoryState();
 
+const SUPABASE_MAX_RETRIES = 3;
+const SUPABASE_RETRY_DELAY_MS = 1000;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableJwtError(error) {
+  if (!error) return false;
+  const code = String(error.code || '').toUpperCase();
+  const message = String(error.message || '');
+  const details = String(error.details || '');
+  return (
+    code === 'PGRST303' ||
+    /JWT issued at future/i.test(message) ||
+    /JWT issued at future/i.test(details)
+  );
+}
+
 function handleSupabaseError(error, context) {
   if (!error) return;
   const err = new Error(`${context}: ${error.message}`);
@@ -107,21 +126,67 @@ function handleSupabaseError(error, context) {
   throw err;
 }
 
+/**
+ * Supabaseクエリ実行ラッパー
+ * PGRST303 / JWT issued at future 発生時は1秒待機して最大3回まで自動リトライする
+ */
+async function runSupabaseWithRetry(
+  queryFn,
+  context,
+  { maxRetries = SUPABASE_MAX_RETRIES, delayMs = SUPABASE_RETRY_DELAY_MS } = {}
+) {
+  let lastError = null;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await queryFn();
+      if (!result || !result.error) {
+        if (attempt > 0) {
+          console.log(`[SUPABASE RETRY SUCCEEDED] ${context} (${attempt}回目のリトライで成功)`);
+        }
+        return result;
+      }
+
+      lastError = result.error;
+      if (isRetryableJwtError(lastError) && attempt < maxRetries) {
+        console.warn(
+          `[SUPABASE RETRY] ${context}: ${lastError.message} (code: ${lastError.code || 'N/A'}) -> ${delayMs}ms待機後リトライ (${attempt + 1}/${maxRetries})`
+        );
+        await sleep(delayMs);
+        continue;
+      }
+
+      handleSupabaseError(lastError, context);
+    } catch (err) {
+      if (isRetryableJwtError(err) && attempt < maxRetries) {
+        console.warn(
+          `[SUPABASE RETRY] ${context}: ${err.message} (code: ${err.code || 'N/A'}) -> ${delayMs}ms待機後リトライ (${attempt + 1}/${maxRetries})`
+        );
+        await sleep(delayMs);
+        continue;
+      }
+      throw err;
+    }
+  }
+  handleSupabaseError(lastError, context);
+}
+
 // ============================================================================
 // 1. contents（商材・コンテンツ）
 // ============================================================================
 async function listContents({ activeOnly = false } = {}) {
   if (supabase) {
-    let query = supabase
-      .from('contents')
-      .select('*')
-      .order('sort_order', { ascending: true })
-      .order('created_at', { ascending: true });
-    if (activeOnly) {
-      query = query.eq('is_active', true);
-    }
-    const { data, error } = await query;
-    handleSupabaseError(error, '商材一覧の取得に失敗しました');
+    const { data } = await runSupabaseWithRetry(() => {
+      let query = supabase
+        .from('contents')
+        .select('*')
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true });
+      if (activeOnly) {
+        query = query.eq('is_active', true);
+      }
+      return query;
+    }, '商材一覧の取得に失敗しました');
+
     return (data || []).map((c) => ({
       ...c,
       min_people_per_group: Number(c.min_people_per_group) || 1,
@@ -142,12 +207,10 @@ async function listContents({ activeOnly = false } = {}) {
 async function getContentById(id) {
   if (!id) return null;
   if (supabase) {
-    const { data, error } = await supabase
-      .from('contents')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
-    handleSupabaseError(error, '商材の取得に失敗しました');
+    const { data } = await runSupabaseWithRetry(
+      () => supabase.from('contents').select('*').eq('id', id).maybeSingle(),
+      '商材の取得に失敗しました'
+    );
     if (!data) return null;
     return {
       ...data,
@@ -180,12 +243,10 @@ async function createContent(payload) {
   };
 
   if (supabase) {
-    const { data, error } = await supabase
-      .from('contents')
-      .insert(record)
-      .select()
-      .single();
-    handleSupabaseError(error, '商材の作成に失敗しました');
+    const { data } = await runSupabaseWithRetry(
+      () => supabase.from('contents').insert(record).select().single(),
+      '商材の作成に失敗しました'
+    );
     return data;
   }
 
@@ -209,13 +270,10 @@ async function updateContent(id, payload) {
   };
 
   if (supabase) {
-    const { data, error } = await supabase
-      .from('contents')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .maybeSingle();
-    handleSupabaseError(error, '商材の更新に失敗しました');
+    const { data } = await runSupabaseWithRetry(
+      () => supabase.from('contents').update(updates).eq('id', id).select().maybeSingle(),
+      '商材の更新に失敗しました'
+    );
     return data;
   }
 
@@ -231,8 +289,10 @@ async function updateContent(id, payload) {
 
 async function deleteContent(id) {
   if (supabase) {
-    const { error } = await supabase.from('contents').delete().eq('id', id);
-    handleSupabaseError(error, '商材の削除に失敗しました');
+    await runSupabaseWithRetry(
+      () => supabase.from('contents').delete().eq('id', id),
+      '商材の削除に失敗しました'
+    );
     return true;
   }
 
@@ -248,15 +308,17 @@ async function deleteContent(id) {
 // ============================================================================
 async function listDailySchedules({ contentId, fromDate, toDate } = {}) {
   if (supabase) {
-    let query = supabase
-      .from('daily_schedules')
-      .select('*')
-      .order('target_date', { ascending: true });
-    if (contentId) query = query.eq('content_id', contentId);
-    if (fromDate) query = query.gte('target_date', fromDate);
-    if (toDate) query = query.lte('target_date', toDate);
-    const { data, error } = await query;
-    handleSupabaseError(error, '日別スケジュールの取得に失敗しました');
+    const { data } = await runSupabaseWithRetry(() => {
+      let query = supabase
+        .from('daily_schedules')
+        .select('*')
+        .order('target_date', { ascending: true });
+      if (contentId) query = query.eq('content_id', contentId);
+      if (fromDate) query = query.gte('target_date', fromDate);
+      if (toDate) query = query.lte('target_date', toDate);
+      return query;
+    }, '日別スケジュールの取得に失敗しました');
+
     return (data || []).map((d) => ({
       ...d,
       custom_time_slots: normalizeTimeSlots(d.custom_time_slots),
@@ -276,13 +338,16 @@ async function listDailySchedules({ contentId, fromDate, toDate } = {}) {
 
 async function getDailySchedule(contentId, targetDate) {
   if (supabase) {
-    const { data, error } = await supabase
-      .from('daily_schedules')
-      .select('*')
-      .eq('content_id', contentId)
-      .eq('target_date', targetDate)
-      .maybeSingle();
-    handleSupabaseError(error, '日別スケジュールの取得に失敗しました');
+    const { data } = await runSupabaseWithRetry(
+      () =>
+        supabase
+          .from('daily_schedules')
+          .select('*')
+          .eq('content_id', contentId)
+          .eq('target_date', targetDate)
+          .maybeSingle(),
+      '日別スケジュールの取得に失敗しました'
+    );
     if (!data) return null;
     return {
       ...data,
@@ -302,19 +367,22 @@ async function upsertDailySchedule(contentId, targetDate, customTimeSlots) {
   const normalized = normalizeTimeSlots(customTimeSlots);
 
   if (supabase) {
-    const { data, error } = await supabase
-      .from('daily_schedules')
-      .upsert(
-        {
-          content_id: contentId,
-          target_date: targetDate,
-          custom_time_slots: normalized,
-        },
-        { onConflict: 'content_id,target_date' }
-      )
-      .select()
-      .single();
-    handleSupabaseError(error, '日別スケジュールの保存に失敗しました');
+    const { data } = await runSupabaseWithRetry(
+      () =>
+        supabase
+          .from('daily_schedules')
+          .upsert(
+            {
+              content_id: contentId,
+              target_date: targetDate,
+              custom_time_slots: normalized,
+            },
+            { onConflict: 'content_id,target_date' }
+          )
+          .select()
+          .single(),
+      '日別スケジュールの保存に失敗しました'
+    );
     return data;
   }
 
@@ -344,12 +412,15 @@ async function upsertDailySchedule(contentId, targetDate, customTimeSlots) {
 
 async function deleteDailySchedule(contentId, targetDate) {
   if (supabase) {
-    const { error } = await supabase
-      .from('daily_schedules')
-      .delete()
-      .eq('content_id', contentId)
-      .eq('target_date', targetDate);
-    handleSupabaseError(error, '日別スケジュールの削除に失敗しました');
+    await runSupabaseWithRetry(
+      () =>
+        supabase
+          .from('daily_schedules')
+          .delete()
+          .eq('content_id', contentId)
+          .eq('target_date', targetDate),
+      '日別スケジュールの削除に失敗しました'
+    );
     return true;
   }
 
@@ -364,20 +435,21 @@ async function deleteDailySchedule(contentId, targetDate) {
 // ============================================================================
 async function listReservations({ fromDate, toDate, contentId, status } = {}) {
   if (supabase) {
-    let query = supabase
-      .from('reservations')
-      .select('*')
-      .order('reservation_date', { ascending: true })
-      .order('time_slot', { ascending: true })
-      .order('created_at', { ascending: true });
+    const { data } = await runSupabaseWithRetry(() => {
+      let query = supabase
+        .from('reservations')
+        .select('*')
+        .order('reservation_date', { ascending: true })
+        .order('time_slot', { ascending: true })
+        .order('created_at', { ascending: true });
 
-    if (fromDate) query = query.gte('reservation_date', fromDate);
-    if (toDate) query = query.lte('reservation_date', toDate);
-    if (contentId) query = query.eq('content_id', contentId);
-    if (status) query = query.eq('status', status);
+      if (fromDate) query = query.gte('reservation_date', fromDate);
+      if (toDate) query = query.lte('reservation_date', toDate);
+      if (contentId) query = query.eq('content_id', contentId);
+      if (status) query = query.eq('status', status);
+      return query;
+    }, '予約一覧の取得に失敗しました');
 
-    const { data, error } = await query;
-    handleSupabaseError(error, '予約一覧の取得に失敗しました');
     return data || [];
   }
 
@@ -399,12 +471,10 @@ async function listReservations({ fromDate, toDate, contentId, status } = {}) {
 async function getReservationById(id) {
   if (!id) return null;
   if (supabase) {
-    const { data, error } = await supabase
-      .from('reservations')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
-    handleSupabaseError(error, '予約の取得に失敗しました');
+    const { data } = await runSupabaseWithRetry(
+      () => supabase.from('reservations').select('*').eq('id', id).maybeSingle(),
+      '予約の取得に失敗しました'
+    );
     return data;
   }
 
@@ -427,12 +497,10 @@ async function createReservation(payload) {
   };
 
   if (supabase) {
-    const { data, error } = await supabase
-      .from('reservations')
-      .insert(record)
-      .select()
-      .single();
-    handleSupabaseError(error, '予約の登録に失敗しました');
+    const { data } = await runSupabaseWithRetry(
+      () => supabase.from('reservations').insert(record).select().single(),
+      '予約の登録に失敗しました'
+    );
     return data;
   }
 
@@ -458,13 +526,10 @@ async function updateReservation(id, payload) {
   };
 
   if (supabase) {
-    const { data, error } = await supabase
-      .from('reservations')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .maybeSingle();
-    handleSupabaseError(error, '予約の更新に失敗しました');
+    const { data } = await runSupabaseWithRetry(
+      () => supabase.from('reservations').update(updates).eq('id', id).select().maybeSingle(),
+      '予約の更新に失敗しました'
+    );
     return data;
   }
 
@@ -480,13 +545,10 @@ async function updateReservation(id, payload) {
 
 async function updateReservationStatus(id, status) {
   if (supabase) {
-    const { data, error } = await supabase
-      .from('reservations')
-      .update({ status })
-      .eq('id', id)
-      .select()
-      .maybeSingle();
-    handleSupabaseError(error, '予約ステータスの更新に失敗しました');
+    const { data } = await runSupabaseWithRetry(
+      () => supabase.from('reservations').update({ status }).eq('id', id).select().maybeSingle(),
+      '予約ステータスの更新に失敗しました'
+    );
     return data;
   }
 
@@ -505,12 +567,15 @@ async function updateReservationStatus(id, status) {
 // ============================================================================
 async function listExternalLinks() {
   if (supabase) {
-    const { data, error } = await supabase
-      .from('external_links')
-      .select('*')
-      .order('sort_order', { ascending: true })
-      .order('created_at', { ascending: true });
-    handleSupabaseError(error, '外部リンク一覧の取得に失敗しました');
+    const { data } = await runSupabaseWithRetry(
+      () =>
+        supabase
+          .from('external_links')
+          .select('*')
+          .order('sort_order', { ascending: true })
+          .order('created_at', { ascending: true }),
+      '外部リンク一覧の取得に失敗しました'
+    );
     return data || [];
   }
 
@@ -528,12 +593,10 @@ async function createExternalLink(payload) {
   };
 
   if (supabase) {
-    const { data, error } = await supabase
-      .from('external_links')
-      .insert(record)
-      .select()
-      .single();
-    handleSupabaseError(error, '外部リンクの登録に失敗しました');
+    const { data } = await runSupabaseWithRetry(
+      () => supabase.from('external_links').insert(record).select().single(),
+      '外部リンクの登録に失敗しました'
+    );
     return data;
   }
 
@@ -552,13 +615,10 @@ async function updateExternalLink(id, payload) {
   };
 
   if (supabase) {
-    const { data, error } = await supabase
-      .from('external_links')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .maybeSingle();
-    handleSupabaseError(error, '外部リンクの更新に失敗しました');
+    const { data } = await runSupabaseWithRetry(
+      () => supabase.from('external_links').update(updates).eq('id', id).select().maybeSingle(),
+      '外部リンクの更新に失敗しました'
+    );
     return data;
   }
 
@@ -574,8 +634,10 @@ async function updateExternalLink(id, payload) {
 
 async function deleteExternalLink(id) {
   if (supabase) {
-    const { error } = await supabase.from('external_links').delete().eq('id', id);
-    handleSupabaseError(error, '外部リンクの削除に失敗しました');
+    await runSupabaseWithRetry(
+      () => supabase.from('external_links').delete().eq('id', id),
+      '外部リンクの削除に失敗しました'
+    );
     return true;
   }
 
@@ -607,13 +669,16 @@ async function uploadImage({ buffer, originalname, mimetype }) {
 
   if (supabase) {
     const filePath = `contents/${fileName}`;
-    const { error } = await supabase.storage
-      .from(config.supabaseStorageBucket)
-      .upload(filePath, buffer, {
-        contentType: mimetype,
-        upsert: false,
-      });
-    handleSupabaseError(error, 'Supabase Storageへの画像アップロードに失敗しました');
+    await runSupabaseWithRetry(
+      () =>
+        supabase.storage
+          .from(config.supabaseStorageBucket)
+          .upload(filePath, buffer, {
+            contentType: mimetype,
+            upsert: false,
+          }),
+      'Supabase Storageへの画像アップロードに失敗しました'
+    );
 
     const { data } = supabase.storage
       .from(config.supabaseStorageBucket)
@@ -631,6 +696,8 @@ async function uploadImage({ buffer, originalname, mimetype }) {
 
 module.exports = {
   isSupabaseMode: Boolean(supabase),
+  isRetryableJwtError,
+  runSupabaseWithRetry,
   listContents,
   getContentById,
   createContent,
