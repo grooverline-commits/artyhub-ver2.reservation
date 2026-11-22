@@ -74,13 +74,57 @@
     return state.contents.find((c) => c.id === state.selectedContentId) || null;
   }
 
-  async function apiFetch(url, options = {}) {
-    const res = await fetch(url, options);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data.error || '通信エラーが発生しました。');
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  function isJwtFutureMessage(msg) {
+    return /PGRST303|JWT issued at future/i.test(String(msg || ''));
+  }
+
+  async function apiFetch(url, options = {}, { maxRetries = 3, delayMs = 1000 } = {}) {
+    const method = String(options.method || 'GET').toUpperCase();
+    const isReadMethod = method === 'GET' || method === 'HEAD';
+    let lastErr = null;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const res = await fetch(url, options);
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          return data;
+        }
+
+        const errMsg = data.error || '通信エラーが発生しました。';
+        const err = new Error(errMsg);
+        err.status = res.status;
+
+        const shouldRetry =
+          attempt < maxRetries &&
+          (isJwtFutureMessage(errMsg) || (isReadMethod && res.status >= 500));
+
+        if (shouldRetry) {
+          await sleep(delayMs);
+          continue;
+        }
+        throw err;
+      } catch (err) {
+        lastErr = err;
+        const isNetworkError = err && !err.status;
+        const shouldRetry =
+          attempt < maxRetries &&
+          ((isReadMethod && (isNetworkError || err.status >= 500)) ||
+            isJwtFutureMessage(err?.message));
+
+        if (shouldRetry) {
+          await sleep(delayMs);
+          continue;
+        }
+        throw err;
+      }
     }
-    return data;
+
+    throw lastErr || new Error('通信エラーが発生しました。');
   }
 
   // --------------------------------------------------------------------------
@@ -229,7 +273,18 @@
       renderSlots();
       updateBookingSummary();
     } catch (err) {
-      els.calendarGrid.innerHTML = `<div style="grid-column:1/-1;" class="alert alert-error">${escapeHtml(err.message)}</div>`;
+      els.calendarGrid.innerHTML = `
+        <div style="grid-column:1/-1;" class="alert alert-error">
+          <div>${escapeHtml(err.message)}</div>
+          <button type="button" id="retry-calendar-btn" class="btn btn-secondary" style="margin-top:10px;">
+            空き状況を再読み込みする
+          </button>
+        </div>
+      `;
+      const retryCalBtn = document.getElementById('retry-calendar-btn');
+      if (retryCalBtn) {
+        retryCalBtn.addEventListener('click', loadMonthAvailability);
+      }
     }
   }
 
@@ -497,6 +552,61 @@
   // --------------------------------------------------------------------------
   // 初期化
   // --------------------------------------------------------------------------
+  async function loadInitialData() {
+    els.contentsGrid.innerHTML = '<div class="empty-state">メニューを読み込んでいます...</div>';
+    try {
+      const [cfg, contentsRes] = await Promise.all([
+        apiFetch('/api/config'),
+        apiFetch('/api/contents'),
+      ]);
+
+      state.storeName = cfg.storeName || 'ARTYHUB 長野';
+      state.today = cfg.today;
+      document.title = `${state.storeName} | ワークショップ体験予約`;
+      els.headerStoreName.textContent = state.storeName;
+      els.heroStoreName.textContent = state.storeName;
+      els.footerStoreName.textContent = state.storeName;
+
+      if (cfg.today) {
+        const [y, m] = cfg.today.split('-').map(Number);
+        state.currentYear = y;
+        state.currentMonth = m;
+      }
+
+      state.contents = contentsRes.contents || [];
+      if (state.contents.length > 0) {
+        state.selectedContentId = state.contents[0].id;
+      }
+
+      renderContents();
+
+      // リンク取得は独立して実行（万が一失敗しても商材・予約を止めない）
+      apiFetch('/api/links')
+        .then((linksRes) => renderLinks(linksRes.links || []))
+        .catch(() => {
+          els.linksGrid.innerHTML =
+            '<div class="empty-state">リンク情報の読み込みに失敗しました。ページを再読み込みしてください。</div>';
+        });
+
+      if (state.selectedContentId) {
+        await loadMonthAvailability();
+      }
+    } catch (err) {
+      els.contentsGrid.innerHTML = `
+        <div class="alert alert-error" style="grid-column:1/-1;">
+          <div>メニューの読み込みに失敗しました（${escapeHtml(err.message)}）</div>
+          <button type="button" id="retry-contents-btn" class="btn btn-secondary" style="margin-top:10px;">
+            再読み込みする
+          </button>
+        </div>
+      `;
+      const retryBtn = document.getElementById('retry-contents-btn');
+      if (retryBtn) {
+        retryBtn.addEventListener('click', loadInitialData);
+      }
+    }
+  }
+
   async function init() {
     els.contentSelect.addEventListener('change', (e) => {
       if (e.target.value) selectContent(e.target.value, false);
@@ -534,40 +644,7 @@
       loadMonthAvailability();
     });
 
-    try {
-      const [cfg, contentsRes, linksRes] = await Promise.all([
-        apiFetch('/api/config'),
-        apiFetch('/api/contents'),
-        apiFetch('/api/links'),
-      ]);
-
-      state.storeName = cfg.storeName || 'ARTYHUB 長野';
-      state.today = cfg.today;
-      document.title = `${state.storeName} | ワークショップ体験予約`;
-      els.headerStoreName.textContent = state.storeName;
-      els.heroStoreName.textContent = state.storeName;
-      els.footerStoreName.textContent = state.storeName;
-
-      if (cfg.today) {
-        const [y, m] = cfg.today.split('-').map(Number);
-        state.currentYear = y;
-        state.currentMonth = m;
-      }
-
-      state.contents = contentsRes.contents || [];
-      if (state.contents.length > 0) {
-        state.selectedContentId = state.contents[0].id;
-      }
-
-      renderContents();
-      renderLinks(linksRes.links || []);
-
-      if (state.selectedContentId) {
-        await loadMonthAvailability();
-      }
-    } catch (err) {
-      els.contentsGrid.innerHTML = `<div class="alert alert-error">${escapeHtml(err.message)}</div>`;
-    }
+    await loadInitialData();
   }
 
   init();
