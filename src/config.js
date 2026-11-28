@@ -5,12 +5,20 @@ const RESERVATION_STATUSES = ['未対応', '確定', '来店済', 'キャンセ�
 
 const rawSupabaseUrl = (process.env.SUPABASE_URL || '').trim();
 const rawSupabaseKey = (process.env.SUPABASE_KEY || '').trim();
+const rawGaMeasurementId = (process.env.GA_MEASUREMENT_ID || '').trim();
 
 const isPlaceholder = (val) =>
   !val ||
   val.includes('your-project-id') ||
   val.includes('your-supabase') ||
   val === 'changeme';
+
+const validGaMeasurementId =
+  rawGaMeasurementId &&
+  !/^G-X+$/i.test(rawGaMeasurementId) &&
+  /^[A-Za-z0-9_-]+$/.test(rawGaMeasurementId)
+    ? rawGaMeasurementId
+    : '';
 
 const config = {
   port: Number(process.env.PORT) || 3000,
@@ -24,6 +32,7 @@ const config = {
   isDefaultAdminPassword: !(process.env.ADMIN_PASSWORD || '').trim(),
   gmailUser: (process.env.GMAIL_USER || '').trim(),
   gmailPass: (process.env.GMAIL_PASS || '').trim(),
+  gaMeasurementId: validGaMeasurementId,
   TIME_SLOTS,
   RESERVATION_STATUSES,
   isSupabaseConfigured: !isPlaceholder(rawSupabaseUrl) && !isPlaceholder(rawSupabaseKey),
@@ -31,6 +40,7 @@ const config = {
     Boolean((process.env.GMAIL_USER || '').trim()) &&
     Boolean((process.env.GMAIL_PASS || '').trim()) &&
     !(process.env.GMAIL_PASS || '').includes('your-gmail-app-password'),
+  isGaConfigured: Boolean(validGaMeasurementId),
 };
 
 module.exports = config;
