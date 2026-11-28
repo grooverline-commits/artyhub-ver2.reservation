@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const config = require('./src/config');
@@ -13,8 +14,41 @@ app.set('trust proxy', 1);
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// 静的ファイル配信
-app.use(express.static(path.join(__dirname, 'public')));
+function buildGaTag(measurementId) {
+  if (!measurementId) return '';
+  return [
+    '  <!-- Google tag (gtag.js) -->',
+    `  <script async src="https://www.googletagmanager.com/gtag/js?id=${measurementId}"></script>`,
+    '  <script>',
+    '    window.dataLayer = window.dataLayer || [];',
+    '    function gtag(){dataLayer.push(arguments);}',
+    "    gtag('js', new Date());",
+    `    gtag('config', '${measurementId}');`,
+    '  </script>',
+  ].join('\n');
+}
+
+function sendHtmlPage(fileName) {
+  const filePath = path.join(__dirname, 'public', fileName);
+  return (req, res, next) => {
+    fs.readFile(filePath, 'utf8', (err, html) => {
+      if (err) return next(err);
+      let output = html;
+      if (config.gaMeasurementId && /<\/head>/i.test(output)) {
+        const gaTag = buildGaTag(config.gaMeasurementId);
+        output = output.replace(/<\/head>/i, `${gaTag}\n</head>`);
+      }
+      res.type('html').send(output);
+    });
+  };
+}
+
+// 画面ルーティング（静的配信より先に処理し、全HTMLページの <head> へGA4タグを動的挿入）
+app.get(['/', '/index.html'], sendHtmlPage('index.html'));
+app.get(['/admin', '/admin.html'], sendHtmlPage('admin.html'));
+
+// 静的ファイル配信（HTML直配信によるバイパスを防ぐため index: false）
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 // ヘルスチェック（Render用）
 app.get('/healthz', (req, res) => {
@@ -23,21 +57,13 @@ app.get('/healthz', (req, res) => {
     store: config.storeName,
     storageMode: db.isSupabaseMode ? 'supabase' : 'memory-demo',
     mailConfigured: config.isMailConfigured,
+    gaConfigured: config.isGaConfigured,
   });
 });
 
 // APIルーティング
 app.use('/api', publicRoutes);
 app.use('/api/admin', adminRoutes);
-
-// 画面ルーティング
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
-});
-
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
 
 // API 404ハンドラ
 app.use('/api', (req, res) => {
@@ -71,6 +97,13 @@ if (require.main === module) {
         config.isMailConfigured
           ? `有効 (${config.gmailUser} -> 通知先: ${config.storeNotifyEmail})`
           : 'スキップモード（GMAIL_USER/GMAIL_PASS 未設定）'
+      }`
+    );
+    console.log(
+      ` GA4計測    : ${
+        config.isGaConfigured
+          ? `有効 (${config.gaMeasurementId})`
+          : '無効（GA_MEASUREMENT_ID 未設定）'
       }`
     );
     if (config.isDefaultAdminPassword) {
